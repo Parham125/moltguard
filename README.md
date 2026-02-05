@@ -1,8 +1,15 @@
 # OG-OpenClawGuard
 
+[![npm version](https://img.shields.io/npm/v/og-openclawguard.svg)](https://www.npmjs.com/package/og-openclawguard)
+[![GitHub](https://img.shields.io/github/license/openguardrails/og-openclawguard)](https://github.com/openguardrails/og-openclawguard)
+
 Detect prompt injection attacks hidden in long content (emails, web pages, documents).
 
 Powered by [OpenGuardrails](https://openguardrails.com) SOTA security detection capabilities.
+
+**GitHub**: [https://github.com/openguardrails/og-openclawguard](https://github.com/openguardrails/og-openclawguard)
+
+**npm**: [https://www.npmjs.com/package/og-openclawguard](https://www.npmjs.com/package/og-openclawguard)
 
 ## OpenGuardrails - State-of-the-Art Security Detection
 
@@ -49,7 +56,10 @@ Long Content (email/webpage/document)
 ## Installation
 
 ```bash
-# Install from npm
+# Install via npm
+npm i og-openclawguard
+
+# Or install via OpenClaw plugins
 openclaw plugins install og-openclawguard
 
 # Restart gateway to load the plugin
@@ -310,7 +320,7 @@ openclaw gateway restart
 
 ```bash
 # Clone repository
-git clone https://github.com/anthropics/og-openclawguard.git
+git clone https://github.com/openguardrails/og-openclawguard.git
 cd og-openclawguard
 
 # Install dependencies
