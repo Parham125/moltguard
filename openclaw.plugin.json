@@ -1,6 +1,6 @@
 {
-  "id": "openguardrails",
-  "name": "OpenGuardrails",
+  "id": "openguardrails-for-openclaw",
+  "name": "OpenGuardrails for OpenClaw",
   "description": "Agent-based prompt injection detection for long content using LLM analysis",
   "version": "3.0.0",
   "configSchema": {

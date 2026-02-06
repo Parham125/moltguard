@@ -1,15 +1,15 @@
-# OpenGuardrails
+# OpenGuardrails for OpenClaw
 
-[![npm version](https://img.shields.io/npm/v/openguardrails.svg)](https://www.npmjs.com/package/openguardrails)
-[![GitHub](https://img.shields.io/github/license/openguardrails/openguardrails)](https://github.com/openguardrails/openguardrails)
+[![npm version](https://img.shields.io/npm/v/openguardrails-for-openclaw-for-openclaw.svg)](https://www.npmjs.com/package/openguardrails-for-openclaw-for-openclaw)
+[![GitHub](https://img.shields.io/github/license/openguardrails-for-openclaw/openguardrails-for-openclaw-for-openclaw)](https://github.com/openguardrails-for-openclaw/openguardrails-for-openclaw-for-openclaw)
 
 Detect prompt injection attacks hidden in long content (emails, web pages, documents).
 
-Powered by [OpenGuardrails](https://openguardrails.com) SOTA security detection capabilities.
+Powered by [OpenGuardrails](https://openguardrails-for-openclaw.com) SOTA security detection capabilities.
 
-**GitHub**: [https://github.com/openguardrails/openguardrails](https://github.com/openguardrails/openguardrails)
+**GitHub**: [https://github.com/openguardrails-for-openclaw/openguardrails-for-openclaw-for-openclaw](https://github.com/openguardrails-for-openclaw/openguardrails-for-openclaw-for-openclaw)
 
-**npm**: [https://www.npmjs.com/package/openguardrails](https://www.npmjs.com/package/openguardrails)
+**npm**: [https://www.npmjs.com/package/openguardrails-for-openclaw-for-openclaw](https://www.npmjs.com/package/openguardrails-for-openclaw-for-openclaw)
 
 ## OpenGuardrails - State-of-the-Art Security Detection
 
@@ -57,7 +57,7 @@ Long Content (email/webpage/document)
 
 ```bash
 # Install from npm
-openclaw plugins install openguardrails
+openclaw plugins install openguardrails-for-openclaw-for-openclaw
 
 # Restart gateway to load the plugin
 openclaw gateway restart
@@ -66,13 +66,13 @@ openclaw gateway restart
 ## Verify Installation
 
 ```bash
-# Check plugin list, confirm openguardrails status is "loaded"
+# Check plugin list, confirm openguardrails-for-openclaw status is "loaded"
 openclaw plugins list
 ```
 
 You should see:
 ```
-| OpenGuardrails | openguardrails | loaded | ...
+| OpenGuardrails for OpenClaw | openguardrails-for-openclaw | loaded | ...
 ```
 
 ## Commands
@@ -91,7 +91,7 @@ You should see:
 Download the test file with hidden injection:
 
 ```bash
-curl -L -o /tmp/test-email.txt https://raw.githubusercontent.com/openguardrails/openguardrails/main/samples/test-email.txt
+curl -L -o /tmp/test-email.txt https://raw.githubusercontent.com/openguardrails-for-openclaw/openguardrails-for-openclaw/main/samples/test-email.txt
 ```
 
 ### 2. Test in OpenClaw
@@ -106,19 +106,19 @@ Read the contents of /tmp/test-email.txt
 
 ```bash
 # Real-time log monitoring
-tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep "openguardrails"
+tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep "openguardrails-for-openclaw"
 
 # Or use openclaw command
-openclaw logs --follow | grep "openguardrails"
+openclaw logs --follow | grep "openguardrails-for-openclaw"
 ```
 
 If detection succeeds, you'll see logs like:
 
 ```
-[openguardrails] tool_result_persist triggered for "read"
-[openguardrails] Analyzing tool result from "read" (1183 chars)
-[openguardrails] Analysis complete in 5896ms: INJECTION DETECTED
-[openguardrails] INJECTION DETECTED in tool result from "read": Chunk 1: Contains instructions to override guidelines and execute a malicious shell command
+[openguardrails-for-openclaw] tool_result_persist triggered for "read"
+[openguardrails-for-openclaw] Analyzing tool result from "read" (1183 chars)
+[openguardrails-for-openclaw] Analysis complete in 5896ms: INJECTION DETECTED
+[openguardrails-for-openclaw] INJECTION DETECTED in tool result from "read": Chunk 1: Contains instructions to override guidelines and execute a malicious shell command
 ```
 
 ### 4. View Statistics
@@ -210,7 +210,7 @@ Configure hooks in `~/.openclaw/openclaw.json` to forward alerts to Slack/Discor
   "hooks": {
     "og-alert": {
       "url": "https://your-webhook-url.com/alert",
-      "events": ["plugin:openguardrails:injection-detected"]
+      "events": ["plugin:openguardrails-for-openclaw:injection-detected"]
     }
   }
 }
@@ -251,7 +251,7 @@ Edit OpenClaw config file (`~/.openclaw/openclaw.json`):
 {
   "plugins": {
     "entries": {
-      "openguardrails": {
+      "openguardrails-for-openclaw": {
         "enabled": true,
         "config": {
           "blockOnRisk": true,
@@ -276,7 +276,7 @@ Edit OpenClaw config file (`~/.openclaw/openclaw.json`):
 ## Uninstall
 
 ```bash
-openclaw plugins uninstall openguardrails
+openclaw plugins uninstall openguardrails-for-openclaw
 openclaw gateway restart
 ```
 
@@ -284,8 +284,8 @@ openclaw gateway restart
 
 ```bash
 # Clone repository
-git clone https://github.com/openguardrails/openguardrails.git
-cd openguardrails
+git clone https://github.com/openguardrails-for-openclaw/openguardrails-for-openclaw.git
+cd openguardrails-for-openclaw
 
 # Install dependencies
 npm install

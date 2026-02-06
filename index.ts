@@ -17,8 +17,8 @@ import { createAnalysisStore } from "./memory/store.js";
 // Constants
 // =============================================================================
 
-const PLUGIN_ID = "openguardrails";
-const PLUGIN_NAME = "OpenGuardrails";
+const PLUGIN_ID = "openguardrails-for-openclaw";
+const PLUGIN_NAME = "OpenGuardrails for OpenClaw";
 const LOG_PREFIX = `[${PLUGIN_ID}]`;
 
 // =============================================================================
@@ -242,7 +242,7 @@ const openClawGuardPlugin = {
     // Register status command
     api.registerCommand({
       name: "og_status",
-      description: "Show OpenGuardrails status and statistics",
+      description: "Show OpenGuardrails for OpenClaw status and statistics",
       requireAuth: true,
       handler: async () => {
         const stats = store.getStats();
@@ -250,7 +250,7 @@ const openClawGuardPlugin = {
         const recentLogs = store.getRecentLogs(5);
 
         const statusLines = [
-          "**OpenGuardrails Status**",
+          "**OpenGuardrails for OpenClaw Status**",
           "",
           `- Enabled: ${config.enabled}`,
           `- Block on risk: ${config.blockOnRisk}`,

@@ -1,5 +1,5 @@
 {
-  "name": "openguardrails",
+  "name": "openguardrails-for-openclaw",
   "version": "3.0.0",
   "description": "Agent-based prompt injection detection for OpenClaw powered by OpenGuardrails SOTA security",
   "type": "module",
@@ -26,12 +26,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openguardrails/openguardrails.git"
+    "url": "git+https://github.com/openguardrails/openguardrails-for-openclaw.git"
   },
   "bugs": {
-    "url": "https://github.com/openguardrails/openguardrails/issues"
+    "url": "https://github.com/openguardrails/openguardrails-for-openclaw/issues"
   },
-  "homepage": "https://github.com/openguardrails/openguardrails#readme",
+  "homepage": "https://github.com/openguardrails/openguardrails-for-openclaw#readme",
   "files": [
     "index.ts",
     "agent/",
