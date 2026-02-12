@@ -1,7 +1,7 @@
 {
   "name": "@openguardrails/moltguard",
-  "version": "3.0.3",
-  "description": "Agent-based prompt injection detection for OpenClaw powered by OpenGuardrails SOTA security",
+  "version": "4.0.0",
+  "description": "API-based prompt injection detection for OpenClaw powered by MoltGuard",
   "type": "module",
   "main": "index.ts",
   "openclaw": {
@@ -15,23 +15,22 @@
   },
   "keywords": [
     "openclaw",
-    "openguardrails",
+    "moltguard",
     "prompt-injection",
     "security",
-    "llm",
     "ai-safety",
     "guard"
   ],
-  "author": "OpenGuardrails",
+  "author": "MoltGuard",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openguardrails/moltguard.git"
+    "url": "git+https://github.com/moltguard/moltguard.git"
   },
   "bugs": {
-    "url": "https://github.com/openguardrails/moltguard/issues"
+    "url": "https://github.com/moltguard/moltguard/issues"
   },
-  "homepage": "https://github.com/openguardrails/moltguard#readme",
+  "homepage": "https://github.com/moltguard/moltguard#readme",
   "files": [
     "index.ts",
     "agent/",
@@ -41,7 +40,6 @@
     "README.md"
   ],
   "dependencies": {
-    "openai": "^4.0.0",
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {

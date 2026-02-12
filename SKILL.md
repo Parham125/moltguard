@@ -1,14 +1,25 @@
 ---
 name: moltguard
-description: Detect and block prompt injection attacks hidden in long content (emails, web pages, documents) using OpenGuardrails SOTA detection
-metadata: {"openclaw":{"emoji":"🔒","homepage":"https://github.com/openguardrails/moltguard"}}
+description: Detect and block prompt injection attacks hidden in long content (emails, web pages, documents) using the MoltGuard API
+metadata: {"openclaw":{"emoji":"🔒","homepage":"https://github.com/moltguard/moltguard"}}
 ---
 
 # MoltGuard Plugin Guide
 
 MoltGuard protects your AI agent from indirect prompt injection attacks — malicious instructions hidden inside emails, web pages, documents, and other long-form content that your agent reads.
 
-Powered by [OpenGuardrails](https://moltguard.com) state-of-the-art detection model with 87.1% F1 on English and 97.3% F1 on multilingual benchmarks.
+## Privacy Statement
+
+MoltGuard is the **first OpenClaw security guard to protect user data with local sanitization**. Before any content leaves your machine, MoltGuard automatically strips sensitive information — emails, phone numbers, credit cards, API keys, and more — replacing them with safe placeholders like `<EMAIL>` and `<SECRET>`.
+
+- **Local sanitization first.** Content is sanitized on your machine before being sent for analysis. PII and secrets never leave your device.
+- **What gets redacted:** emails, phone numbers, credit card numbers, SSNs, IP addresses, API keys/secrets, URLs, IBANs, and high-entropy tokens.
+- **Injection patterns preserved.** Sanitization only strips sensitive data — the structure and context needed for injection detection remain intact.
+- **Your API key is yours.** Each installation gets its own unique API key, auto-registered on first use and stored locally at `~/.openclaw/moltguard-credentials.json`.
+- **No shared keys.** There are no hard-coded or shared API keys in the plugin.
+- **Content is sent to the MoltGuard API** (`api.moltguard.com`) over HTTPS for analysis. Only sanitized content is sent. Content is not stored or used for training after analysis is complete.
+- **Local audit log only.** Analysis results are stored in a local SQLite database on your machine for your own review.
+- **No third-party LLM calls.** Analysis is performed by the MoltGuard API — no content is forwarded to OpenAI or other third-party services.
 
 ## The Problem
 
@@ -37,6 +48,8 @@ Restart the gateway to load the plugin:
 openclaw gateway restart
 ```
 
+On first use, the plugin automatically registers an API key with MoltGuard — no email, password, or manual setup required.
+
 ## Verify Installation
 
 Check the plugin is loaded:
@@ -60,41 +73,42 @@ openclaw logs --follow | grep "moltguard"
 Look for:
 
 ```
-[moltguard] Plugin initialized
+[moltguard] Initialized (block: true, timeout: 60000ms)
 ```
 
 ## How It Works
 
-OpenGuardrails hooks into OpenClaw's `tool_result_persist` event. When your agent reads any external content:
+MoltGuard hooks into OpenClaw's `tool_result_persist` event. When your agent reads any external content:
 
 ```
-Long Content (email/webpage/document)
+Content (email/webpage/document)
          |
          v
    +-----------+
-   |  Chunker  |  Split into 4000 char chunks with 200 char overlap
-   +-----------+
-         |
-         v
-   +-----------+
-   |LLM Analysis|  Analyze each chunk with OG-Text model
-   | (OG-Text)  |  "Is there a hidden prompt injection?"
+   |  Local    |  Strip emails, phones, credit cards,
+   | Sanitize  |  SSNs, API keys, URLs, IBANs...
    +-----------+
          |
          v
    +-----------+
-   |  Verdict  |  Aggregate findings -> isInjection: true/false
+   | MoltGuard |  POST /api/check/tool-call
+   |    API    |  with sanitized content
+   +-----------+
+         |
+         v
+   +-----------+
+   |  Verdict  |  isInjection: true/false + confidence + findings
    +-----------+
          |
          v
    Block or Allow
 ```
 
-If injection is detected, the content is blocked before your agent can process it.
+Content is sanitized locally before being sent to the API — sensitive data never leaves your machine. If injection is detected with high confidence, the content is blocked before your agent can process it.
 
 ## Commands
 
-OpenGuardrails provides three slash commands:
+MoltGuard provides three slash commands:
 
 ### /og_status
 
@@ -105,7 +119,7 @@ View plugin status and detection statistics:
 ```
 
 Returns:
-- Configuration (enabled, block mode, chunk size)
+- Configuration (enabled, block mode, API key status)
 - Statistics (total analyses, blocked count, average duration)
 - Recent analysis history
 
@@ -149,8 +163,6 @@ Edit `~/.openclaw/openclaw.json`:
         "enabled": true,
         "config": {
           "blockOnRisk": true,
-          "maxChunkSize": 4000,
-          "overlapSize": 200,
           "timeoutMs": 60000
         }
       }
@@ -163,8 +175,7 @@ Edit `~/.openclaw/openclaw.json`:
 |--------|---------|-------------|
 | enabled | true | Enable/disable the plugin |
 | blockOnRisk | true | Block content when injection is detected |
-| maxChunkSize | 4000 | Characters per analysis chunk |
-| overlapSize | 200 | Overlap between chunks |
+| apiKey | (auto) | MoltGuard API key (auto-registered if missing) |
 | timeoutMs | 60000 | Analysis timeout (ms) |
 
 ### Log-only Mode
@@ -182,7 +193,7 @@ Detections will be logged and visible in `/og_report`, but content won't be bloc
 Download the test file with hidden injection:
 
 ```bash
-curl -L -o /tmp/test-email.txt https://raw.githubusercontent.com/openguardrails/moltguard/main/samples/test-email.txt
+curl -L -o /tmp/test-email.txt https://raw.githubusercontent.com/moltguard/moltguard/main/samples/test-email.txt
 ```
 
 Ask your agent to read the file:
@@ -203,22 +214,6 @@ You should see:
 [moltguard] INJECTION DETECTED in tool result from "read": Contains instructions to override guidelines and execute malicious command
 ```
 
-## Real-time Alerts
-
-Monitor for injection attempts in real-time:
-
-```bash
-tail -f /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep "INJECTION DETECTED"
-```
-
-## Scheduled Reports
-
-Set up daily detection reports:
-
-```
-/cron add --name "OG-Daily-Report" --every 24h --message "/og_report"
-```
-
 ## Uninstall
 
 ```bash
@@ -226,9 +221,14 @@ openclaw plugins uninstall @openguardrails/moltguard
 openclaw gateway restart
 ```
 
+To also remove your stored API key:
+
+```bash
+rm ~/.openclaw/moltguard-credentials.json
+```
+
 ## Links
 
-- GitHub: https://github.com/openguardrails/moltguard
+- GitHub: https://github.com/moltguard/moltguard
 - npm: https://www.npmjs.com/package/@openguardrails/moltguard
-- OpenGuardrails: https://moltguard.com
-- Technical Paper: https://arxiv.org/abs/2510.19169
+- MoltGuard: https://moltguard.com

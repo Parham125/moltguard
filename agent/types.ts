@@ -1,5 +1,5 @@
 /**
- * Type definitions for the Guard Agent
+ * Type definitions for MoltGuard
  */
 
 // =============================================================================
@@ -9,8 +9,7 @@
 export type OpenClawGuardConfig = {
   enabled?: boolean;
   blockOnRisk?: boolean;
-  maxChunkSize?: number;
-  overlapSize?: number;
+  apiKey?: string;
   timeoutMs?: number;
   dbPath?: string;
 };
@@ -27,16 +26,7 @@ export type AnalysisTarget = {
   metadata?: Record<string, unknown>;
 };
 
-export type ChunkInfo = {
-  index: number;
-  total: number;
-  content: string;
-  startOffset: number;
-  endOffset: number;
-};
-
 export type Finding = {
-  chunkIndex: number;
   suspiciousContent: string;
   reason: string;
   confidence: number; // 0-1
@@ -55,48 +45,21 @@ export type AnalysisVerdict = {
 };
 
 // =============================================================================
-// Agent Message Types
+// MoltGuard API Response
 // =============================================================================
 
-export type AgentRole = "system" | "user" | "assistant" | "tool";
-
-export type AgentToolCall = {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
+export type MoltGuardApiResponse = {
+  ok: boolean;
+  verdict: {
+    isInjection: boolean;
+    confidence: number;
+    reason: string;
+    findings: Array<{
+      suspiciousContent: string;
+      reason: string;
+      confidence: number;
+    }>;
   };
-};
-
-export type AgentMessage = {
-  role: AgentRole;
-  content?: string | null;
-  tool_calls?: AgentToolCall[];
-  tool_call_id?: string;
-  name?: string;
-};
-
-// =============================================================================
-// Tool Types
-// =============================================================================
-
-export type ToolDefinition = {
-  type: "function";
-  function: {
-    name: string;
-    description: string;
-    parameters: {
-      type: "object";
-      properties: Record<string, unknown>;
-      required?: string[];
-    };
-  };
-};
-
-export type ToolResult = {
-  success: boolean;
-  data?: unknown;
   error?: string;
 };
 
@@ -124,4 +87,14 @@ export type Logger = {
   warn: (msg: string) => void;
   error: (msg: string) => void;
   debug?: (msg: string) => void;
+};
+
+// =============================================================================
+// Sanitization Types
+// =============================================================================
+
+export type SanitizeResult = {
+  sanitized: string;
+  redactions: Record<string, number>;
+  totalRedactions: number;
 };

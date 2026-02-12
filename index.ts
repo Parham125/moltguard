@@ -1,15 +1,13 @@
 /**
- * OpenGuardrails - Agent-based Prompt Injection Detection Plugin
+ * MoltGuard - API-based Prompt Injection Detection Plugin
  *
- * Detects prompt injection attacks hidden in long content by:
- * 1. Chunking content into manageable pieces
- * 2. Having LLM analyze each chunk with full focus
- * 3. Aggregating findings into a verdict
+ * Detects prompt injection attacks hidden in long content by
+ * sending it to the MoltGuard API for analysis.
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { OpenClawGuardConfig, AnalysisTarget, Logger } from "./agent/types.js";
-import { resolveConfig } from "./agent/config.js";
+import { resolveConfig, loadApiKey, registerApiKey } from "./agent/config.js";
 import { runGuardAgent } from "./agent/runner.js";
 import { createAnalysisStore } from "./memory/store.js";
 
@@ -35,7 +33,6 @@ function extractToolResultContent(message: unknown): string | null {
 
   const msg = message as Record<string, unknown>;
 
-  // Handle different message formats
   // Format 1: { content: string }
   if (typeof msg.content === "string") {
     return msg.content;
@@ -103,7 +100,7 @@ const openClawGuardPlugin = {
   id: PLUGIN_ID,
   name: PLUGIN_NAME,
   description:
-    "Agent-based prompt injection detection for long content using LLM analysis",
+    "API-based prompt injection detection powered by MoltGuard",
 
   register(api: OpenClawPluginApi) {
     const pluginConfig = (api.pluginConfig ?? {}) as OpenClawGuardConfig;
@@ -120,18 +117,29 @@ const openClawGuardPlugin = {
     const dbPath = api.resolvePath(config.dbPath);
     const store = createAnalysisStore(dbPath, log);
 
-    // Register tool_result_persist hook to analyze tool results (e.g., file contents)
+    // Resolve API key (from config, credentials file, or auto-register)
+    let resolvedApiKey = config.apiKey;
+    if (!resolvedApiKey) {
+      const savedKey = loadApiKey();
+      if (savedKey) {
+        resolvedApiKey = savedKey;
+        log.info("Loaded API key from credentials file");
+      } else {
+        // Auto-register in the background on first use
+        log.info("No API key found — will auto-register on first analysis");
+      }
+    }
+
+    // Register tool_result_persist hook to analyze tool results
     api.on("tool_result_persist", (event, ctx) => {
       const toolName = ctx.toolName ?? event.toolName ?? "unknown";
 
-      // Debug: log that hook was triggered
       log.info(`tool_result_persist triggered for "${toolName}"`);
       log.debug?.(`Event message: ${JSON.stringify(event.message).slice(0, 500)}`);
 
       // Extract content from tool result message
       const content = extractToolResultContent(event.message);
       if (!content || content.length < 100) {
-        // Skip short content - not worth analyzing
         log.debug?.(`Skipping short content (${content?.length ?? 0} chars)`);
         return;
       }
@@ -150,13 +158,10 @@ const openClawGuardPlugin = {
         },
       };
 
-      // Run analysis synchronously (tool_result_persist is sync)
-      // We use a promise but block on it
       runGuardAgent(
         target,
         {
-          maxChunkSize: config.maxChunkSize,
-          overlapSize: config.overlapSize,
+          apiKey: resolvedApiKey,
           timeoutMs: config.timeoutMs,
         },
         log,
@@ -174,20 +179,17 @@ const openClawGuardPlugin = {
         });
 
         if (detected) {
-          log.warn(`⚠️ INJECTION DETECTED in tool result from "${toolName}": ${verdict.reason}`);
+          log.warn(`INJECTION DETECTED in tool result from "${toolName}": ${verdict.reason}`);
         }
       }).catch((error) => {
         log.error(`Tool result analysis failed: ${error}`);
       });
 
-      // Note: tool_result_persist is sync, so we can't block here
-      // The analysis runs async and logs results
       return;
     });
 
     // Register message_received hook (for analyzing long content)
     api.on("message_received", async (event, ctx) => {
-      // Skip short messages - they don't need chunked analysis
       if (event.content.length < 1000) {
         return;
       }
@@ -207,8 +209,7 @@ const openClawGuardPlugin = {
         const verdict = await runGuardAgent(
           target,
           {
-            maxChunkSize: config.maxChunkSize,
-            overlapSize: config.overlapSize,
+            apiKey: resolvedApiKey,
             timeoutMs: config.timeoutMs,
           },
           log,
@@ -216,7 +217,6 @@ const openClawGuardPlugin = {
 
         const durationMs = Date.now() - startTime;
 
-        // Log analysis (message hook doesn't block, just logs)
         store.logAnalysis({
           targetType: "message",
           contentLength: event.content.length,
@@ -254,7 +254,7 @@ const openClawGuardPlugin = {
           "",
           `- Enabled: ${config.enabled}`,
           `- Block on risk: ${config.blockOnRisk}`,
-          `- Max chunk size: ${config.maxChunkSize} chars`,
+          `- API key: ${resolvedApiKey ? "configured" : "not set (will auto-register)"}`,
           "",
           "**Statistics**",
           `- Total analyses: ${stats.totalAnalyses}`,
@@ -270,7 +270,7 @@ const openClawGuardPlugin = {
         if (recentLogs.length > 0) {
           statusLines.push("", "**Recent Analyses**");
           for (const log of recentLogs) {
-            const status = log.blocked ? "🚫 BLOCKED" : log.verdict.isInjection ? "⚠️ DETECTED" : "✅ SAFE";
+            const status = log.blocked ? "BLOCKED" : log.verdict.isInjection ? "DETECTED" : "SAFE";
             statusLines.push(
               `- ${log.timestamp}: ${log.targetType} (${log.contentLength} chars) - ${status}`,
             );
@@ -281,7 +281,7 @@ const openClawGuardPlugin = {
       },
     });
 
-    // Register report command - show recent detections
+    // Register report command
     api.registerCommand({
       name: "og_report",
       description: "Show recent prompt injection detections",
@@ -299,7 +299,7 @@ const openClawGuardPlugin = {
         ];
 
         for (const d of detections) {
-          const status = d.blocked ? "🚫 BLOCKED" : "⚠️ DETECTED";
+          const status = d.blocked ? "BLOCKED" : "DETECTED";
           lines.push(`**#${d.id}** - ${d.timestamp}`);
           lines.push(`- Status: ${status}`);
           lines.push(`- Type: ${d.targetType} (${d.contentLength} chars)`);
@@ -318,7 +318,7 @@ const openClawGuardPlugin = {
       },
     });
 
-    // Register feedback command - report false positives or missed detections
+    // Register feedback command
     api.registerCommand({
       name: "og_feedback",
       description: "Report false positive or missed detection. Usage: /og_feedback <id> fp [reason] OR /og_feedback missed <reason>",
@@ -339,7 +339,6 @@ const openClawGuardPlugin = {
           };
         }
 
-        // Handle "missed" feedback
         if (parts[0] === "missed") {
           const reason = parts.slice(1).join(" ") || "No reason provided";
           store.logFeedback({
@@ -350,7 +349,6 @@ const openClawGuardPlugin = {
           return { text: `Thank you! Recorded missed detection report: "${reason}"` };
         }
 
-        // Handle false positive feedback
         const analysisId = parseInt(parts[0]!, 10);
         if (isNaN(analysisId)) {
           return { text: "Invalid analysis ID. Use `/og_report` to see recent detections." };
@@ -372,7 +370,7 @@ const openClawGuardPlugin = {
     });
 
     log.info(
-      `Initialized (block: ${config.blockOnRisk}, chunk: ${config.maxChunkSize} chars, timeout: ${config.timeoutMs}ms)`,
+      `Initialized (block: ${config.blockOnRisk}, timeout: ${config.timeoutMs}ms)`,
     );
   },
 };

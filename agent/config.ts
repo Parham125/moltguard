@@ -1,35 +1,66 @@
 /**
- * Agent configuration and API client setup
+ * MoltGuard configuration and API key management
  */
 
-import OpenAI from "openai";
 import type { OpenClawGuardConfig } from "./types.js";
 import path from "node:path";
 import os from "node:os";
+import fs from "node:fs";
 
 // =============================================================================
 // API Configuration
 // =============================================================================
 
-const OG_API_BASE_URL = "https://api.openguardrails.com/v1/model/";
-const OG_API_KEY = "sk-xxai-model-0e5a52bd1c70cca03d5f67fe1c2ca406";
+export const MOLTGUARD_API_BASE_URL = "https://api.moltguard.com";
 
-export const LLM_MODEL = "OG-Text";
+const CREDENTIALS_DIR = path.join(os.homedir(), ".openclaw");
+const CREDENTIALS_FILE = path.join(CREDENTIALS_DIR, "moltguard-credentials.json");
 
 // =============================================================================
-// API Client (Singleton)
+// API Key Management
 // =============================================================================
 
-let llmClient: OpenAI | null = null;
-
-export function getLlmClient(): OpenAI {
-  if (!llmClient) {
-    llmClient = new OpenAI({
-      baseURL: OG_API_BASE_URL,
-      apiKey: OG_API_KEY,
-    });
+export function loadApiKey(): string | null {
+  try {
+    if (!fs.existsSync(CREDENTIALS_FILE)) {
+      return null;
+    }
+    const data = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8"));
+    return typeof data.apiKey === "string" ? data.apiKey : null;
+  } catch {
+    return null;
   }
-  return llmClient;
+}
+
+export function saveApiKey(apiKey: string): void {
+  if (!fs.existsSync(CREDENTIALS_DIR)) {
+    fs.mkdirSync(CREDENTIALS_DIR, { recursive: true });
+  }
+  fs.writeFileSync(
+    CREDENTIALS_FILE,
+    JSON.stringify({ apiKey }, null, 2),
+    "utf-8",
+  );
+}
+
+export async function registerApiKey(agentName: string): Promise<string> {
+  const response = await fetch(`${MOLTGUARD_API_BASE_URL}/api/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agentName }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Registration failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as { apiKey: string };
+  if (!data.apiKey) {
+    throw new Error("Registration response missing apiKey");
+  }
+
+  saveApiKey(data.apiKey);
+  return data.apiKey;
 }
 
 // =============================================================================
@@ -39,8 +70,7 @@ export function getLlmClient(): OpenAI {
 export const DEFAULT_CONFIG: Required<OpenClawGuardConfig> = {
   enabled: true,
   blockOnRisk: true,
-  maxChunkSize: 4000,
-  overlapSize: 200,
+  apiKey: "",
   timeoutMs: 60000,
   dbPath: path.join(os.homedir(), ".openclaw", "openclawguard.db"),
 };
@@ -53,8 +83,7 @@ export function resolveConfig(config?: Partial<OpenClawGuardConfig>): Required<O
   return {
     enabled: config?.enabled ?? DEFAULT_CONFIG.enabled,
     blockOnRisk: config?.blockOnRisk ?? DEFAULT_CONFIG.blockOnRisk,
-    maxChunkSize: config?.maxChunkSize ?? DEFAULT_CONFIG.maxChunkSize,
-    overlapSize: config?.overlapSize ?? DEFAULT_CONFIG.overlapSize,
+    apiKey: config?.apiKey ?? DEFAULT_CONFIG.apiKey,
     timeoutMs: config?.timeoutMs ?? DEFAULT_CONFIG.timeoutMs,
     dbPath: config?.dbPath ?? DEFAULT_CONFIG.dbPath,
   };

@@ -1,5 +1,5 @@
 /**
- * Test script to verify OpenClawGuard detection
+ * Test script to verify MoltGuard detection
  *
  * Run with: npx tsx test-injection.ts
  */
@@ -107,7 +107,7 @@ const testCases: Array<{ name: string; content: string; expectInjection: boolean
 
 async function runTests() {
   console.log("=".repeat(60));
-  console.log("OpenClawGuard Detection Test");
+  console.log("MoltGuard Detection Test");
   console.log("=".repeat(60));
   console.log();
 
@@ -126,15 +126,14 @@ async function runTests() {
       const verdict = await runGuardAgent(
         target,
         {
-          maxChunkSize: 4000,
-          overlapSize: 200,
+          apiKey: "",
           timeoutMs: 60000,
         },
         log,
       );
 
       console.log();
-      console.log(`Result: ${verdict.isInjection ? "🚨 INJECTION DETECTED" : "✅ SAFE"}`);
+      console.log(`Result: ${verdict.isInjection ? "INJECTION DETECTED" : "SAFE"}`);
       console.log(`Confidence: ${(verdict.confidence * 100).toFixed(0)}%`);
       console.log(`Reason: ${verdict.reason}`);
       console.log(`Chunks analyzed: ${verdict.chunksAnalyzed}`);
@@ -142,13 +141,13 @@ async function runTests() {
       if (verdict.findings.length > 0) {
         console.log(`Findings:`);
         for (const finding of verdict.findings) {
-          console.log(`  - [Chunk ${finding.chunkIndex}] ${finding.reason}`);
+          console.log(`  - ${finding.reason}`);
           console.log(`    "${finding.suspiciousContent.slice(0, 100)}..."`);
         }
       }
 
       const correct = verdict.isInjection === testCase.expectInjection;
-      console.log(`\n${correct ? "✓ CORRECT" : "✗ WRONG"}`);
+      console.log(`\n${correct ? "CORRECT" : "WRONG"}`);
     } catch (error) {
       console.log(`Error: ${error}`);
     }
