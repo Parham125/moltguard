@@ -2,7 +2,7 @@
   "id": "moltguard",
   "name": "MoltGuard",
   "description": "API-based prompt injection detection powered by MoltGuard",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

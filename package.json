@@ -1,6 +1,6 @@
 {
   "name": "@openguardrails/moltguard",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "API-based prompt injection detection for OpenClaw powered by MoltGuard",
   "type": "module",
   "main": "index.ts",

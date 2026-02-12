@@ -1,25 +1,54 @@
 ---
 name: moltguard
 description: Detect and block prompt injection attacks hidden in long content (emails, web pages, documents) using the MoltGuard API
-metadata: {"openclaw":{"emoji":"🔒","homepage":"https://github.com/moltguard/moltguard"}}
+metadata: {"openclaw":{"emoji":"🔒","homepage":"https://github.com/openguardrails/moltguard"}}
 ---
 
 # MoltGuard Plugin Guide
 
 MoltGuard protects your AI agent from indirect prompt injection attacks — malicious instructions hidden inside emails, web pages, documents, and other long-form content that your agent reads.
 
-## Privacy Statement
+## Privacy & Network Transparency
 
 MoltGuard is the **first OpenClaw security guard to protect user data with local sanitization**. Before any content leaves your machine, MoltGuard automatically strips sensitive information — emails, phone numbers, credit cards, API keys, and more — replacing them with safe placeholders like `<EMAIL>` and `<SECRET>`.
 
-- **Local sanitization first.** Content is sanitized on your machine before being sent for analysis. PII and secrets never leave your device.
+- **Local sanitization first.** Content is sanitized on your machine before being sent for analysis. PII and secrets never leave your device. See `agent/sanitizer.ts` for the full implementation.
 - **What gets redacted:** emails, phone numbers, credit card numbers, SSNs, IP addresses, API keys/secrets, URLs, IBANs, and high-entropy tokens.
 - **Injection patterns preserved.** Sanitization only strips sensitive data — the structure and context needed for injection detection remain intact.
-- **Your API key is yours.** Each installation gets its own unique API key, auto-registered on first use and stored locally at `~/.openclaw/moltguard-credentials.json`.
-- **No shared keys.** There are no hard-coded or shared API keys in the plugin.
-- **Content is sent to the MoltGuard API** (`api.moltguard.com`) over HTTPS for analysis. Only sanitized content is sent. Content is not stored or used for training after analysis is complete.
-- **Local audit log only.** Analysis results are stored in a local SQLite database on your machine for your own review.
-- **No third-party LLM calls.** Analysis is performed by the MoltGuard API — no content is forwarded to OpenAI or other third-party services.
+
+### Exactly What Gets Sent Over the Network
+
+This plugin makes **exactly 2 types of network calls**, both to `api.moltguard.com` over HTTPS. No other hosts are contacted.
+
+**1. Analysis request** (`agent/runner.ts` — `POST /api/check/tool-call`):
+```json
+{
+  "content": "<sanitized text with PII/secrets replaced by placeholders>",
+  "async": false
+}
+```
+That is the complete request body. **Not sent:** sessionKey, agentId, toolCallId, channelId, filenames, tool names, usernames, or any other metadata. These fields exist in the local `AnalysisTarget` object but are never included in the API call — you can verify this in `agent/runner.ts` lines 103–117.
+
+**2. One-time API key registration** (`agent/config.ts` — `POST /api/register`):
+```json
+{
+  "agentName": "openclaw-agent"
+}
+```
+That is the complete request body — a hardcoded string. **Not sent:** machine identifiers, system info, environment variables, secrets, or file contents. You can verify this in `agent/config.ts` lines 46–64. To skip auto-registration entirely, set your API key manually in config.
+
+### Local Storage
+
+- **API key:** `~/.openclaw/moltguard-credentials.json` — contains only `{ "apiKey": "..." }`. Created by `agent/config.ts`.
+- **Audit log:** `~/.openclaw/openclawguard.db` — local SQLite database with analysis verdicts. Never sent to any server. Created by `memory/store.ts`.
+- **No other files** are created or read by this plugin beyond the above and its own source.
+
+### Additional Guarantees
+
+- **Your API key is yours.** Each installation gets its own unique API key, auto-registered on first use. No shared or hard-coded keys.
+- **No third-party LLM calls.** Analysis is performed by the MoltGuard API directly — no content is forwarded to OpenAI or other third-party services.
+- **Content is not stored** by the API after analysis is complete.
+- **Fully auditable.** The entire plugin is open source. The sanitizer (`agent/sanitizer.ts`), runner (`agent/runner.ts`), and config (`agent/config.ts`) are the only files that touch the network — review them directly to verify these claims.
 
 ## The Problem
 
@@ -229,6 +258,6 @@ rm ~/.openclaw/moltguard-credentials.json
 
 ## Links
 
-- GitHub: https://github.com/moltguard/moltguard
+- GitHub: https://github.com/openguardrails/moltguard
 - npm: https://www.npmjs.com/package/@openguardrails/moltguard
 - MoltGuard: https://moltguard.com
