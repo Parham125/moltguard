@@ -69,6 +69,9 @@ export async function registerApiKey(agentName: string, baseUrl: string = DEFAUL
 
 export const DEFAULT_CONFIG: Required<OpenClawGuardConfig> = {
   enabled: true,
+  sanitizePrompt: false,
+  gatewayPort: 8900,
+  gatewayAutoStart: true,
   blockOnRisk: true,
   apiKey: "",
   timeoutMs: 60000,
@@ -84,6 +87,9 @@ export const DEFAULT_CONFIG: Required<OpenClawGuardConfig> = {
 export function resolveConfig(config?: Partial<OpenClawGuardConfig>): Required<OpenClawGuardConfig> {
   return {
     enabled: config?.enabled ?? DEFAULT_CONFIG.enabled,
+    sanitizePrompt: config?.sanitizePrompt ?? DEFAULT_CONFIG.sanitizePrompt,
+    gatewayPort: config?.gatewayPort ?? DEFAULT_CONFIG.gatewayPort,
+    gatewayAutoStart: config?.gatewayAutoStart ?? DEFAULT_CONFIG.gatewayAutoStart,
     blockOnRisk: config?.blockOnRisk ?? DEFAULT_CONFIG.blockOnRisk,
     apiKey: config?.apiKey ?? DEFAULT_CONFIG.apiKey,
     timeoutMs: config?.timeoutMs ?? DEFAULT_CONFIG.timeoutMs,

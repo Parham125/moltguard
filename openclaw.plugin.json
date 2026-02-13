@@ -1,8 +1,8 @@
 {
   "id": "moltguard",
   "name": "MoltGuard",
-  "description": "API-based prompt injection detection powered by MoltGuard",
-  "version": "5.0.0",
+  "description": "Local prompt sanitization and prompt injection detection powered by MoltGuard",
+  "version": "6.0.0",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -10,6 +10,18 @@
       "enabled": {
         "type": "boolean",
         "description": "Enable or disable the guard (default: true)"
+      },
+      "sanitizePrompt": {
+        "type": "boolean",
+        "description": "Enable local prompt sanitization via gateway (default: false)"
+      },
+      "gatewayPort": {
+        "type": "number",
+        "description": "Port for the local sanitization gateway (default: 8900)"
+      },
+      "gatewayAutoStart": {
+        "type": "boolean",
+        "description": "Automatically start the gateway when plugin loads (default: true)"
       },
       "blockOnRisk": {
         "type": "boolean",
@@ -41,6 +53,20 @@
     "enabled": {
       "label": "Enable Guard",
       "help": "Enable or disable prompt injection detection"
+    },
+    "sanitizePrompt": {
+      "label": "Sanitize Prompts",
+      "help": "Enable local prompt sanitization to protect sensitive data (bank cards, passwords, etc.) before sending to LLM. Requires gateway."
+    },
+    "gatewayPort": {
+      "label": "Gateway Port",
+      "help": "Port for the local sanitization gateway",
+      "advanced": true
+    },
+    "gatewayAutoStart": {
+      "label": "Auto-start Gateway",
+      "help": "Automatically start the gateway process when OpenClaw starts",
+      "advanced": true
     },
     "blockOnRisk": {
       "label": "Block on Risk",

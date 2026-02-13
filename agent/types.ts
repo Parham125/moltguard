@@ -8,6 +8,9 @@
 
 export type OpenClawGuardConfig = {
   enabled?: boolean;
+  sanitizePrompt?: boolean;
+  gatewayPort?: number;
+  gatewayAutoStart?: boolean;
   blockOnRisk?: boolean;
   apiKey?: string;
   timeoutMs?: number;

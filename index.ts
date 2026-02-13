@@ -10,6 +10,7 @@ import type { OpenClawGuardConfig, AnalysisTarget, Logger } from "./agent/types.
 import { resolveConfig, loadApiKey, registerApiKey } from "./agent/config.js";
 import { runGuardAgent } from "./agent/runner.js";
 import { createAnalysisStore } from "./memory/store.js";
+import { GatewayManager } from "./gateway-manager.js";
 
 // =============================================================================
 // Constants
@@ -116,6 +117,28 @@ const openClawGuardPlugin = {
     // Initialize analysis store
     const logPath = api.resolvePath(config.logPath);
     const store = createAnalysisStore(logPath, log);
+
+    // Initialize gateway if sanitizePrompt is enabled
+    let gatewayManager: GatewayManager | null = null;
+    if (config.sanitizePrompt) {
+      gatewayManager = new GatewayManager(
+        {
+          port: config.gatewayPort || 8900,
+          autoStart: config.gatewayAutoStart ?? true,
+        },
+        log,
+      );
+
+      // Start gateway
+      gatewayManager.start().catch((error) => {
+        log.error(`Failed to start gateway: ${error}`);
+      });
+
+      log.info(`Gateway enabled on port ${config.gatewayPort || 8900}`);
+      log.info(
+        `Configure your model to use: http://127.0.0.1:${config.gatewayPort || 8900}`
+      );
+    }
 
     // Resolve API key (from config, credentials file, or auto-register)
     let resolvedApiKey = config.apiKey;
@@ -375,6 +398,91 @@ const openClawGuardPlugin = {
         return { text: `Thank you! Recorded false positive report for detection #${analysisId}` };
       },
     });
+
+    // Register gateway management commands (if gateway is enabled)
+    if (gatewayManager) {
+      api.registerCommand({
+        name: "mg_status",
+        description: "Show MoltGuard gateway status",
+        requireAuth: true,
+        handler: async () => {
+          const status = gatewayManager!.getStatus();
+          const lines = [
+            "**MoltGuard Gateway Status**",
+            "",
+            `- Running: ${status.running ? "✓ Yes" : "✗ No"}`,
+            `- Ready: ${status.ready ? "✓ Yes" : "✗ No"}`,
+            `- Port: ${status.port}`,
+            `- Endpoint: http://127.0.0.1:${status.port}`,
+            "",
+            "**Configuration**",
+            "To use the gateway, configure your model provider:",
+            "```json",
+            `{`,
+            `  "models": {`,
+            `    "providers": {`,
+            `      "moltguard-protected": {`,
+            `        "baseUrl": "http://127.0.0.1:${status.port}",`,
+            `        "api": "anthropic-messages",  // or "openai-completions"`,
+            `        "apiKey": "\${ANTHROPIC_API_KEY}"`,
+            `      }`,
+            `    }`,
+            `  }`,
+            `}`,
+            "```",
+          ];
+          return { text: lines.join("\n") };
+        },
+      });
+
+      api.registerCommand({
+        name: "mg_start",
+        description: "Start the MoltGuard gateway",
+        requireAuth: true,
+        handler: async () => {
+          try {
+            await gatewayManager!.start();
+            return { text: "Gateway started successfully" };
+          } catch (error) {
+            return {
+              text: `Failed to start gateway: ${error instanceof Error ? error.message : String(error)}`,
+            };
+          }
+        },
+      });
+
+      api.registerCommand({
+        name: "mg_stop",
+        description: "Stop the MoltGuard gateway",
+        requireAuth: true,
+        handler: async () => {
+          try {
+            await gatewayManager!.stop();
+            return { text: "Gateway stopped" };
+          } catch (error) {
+            return {
+              text: `Failed to stop gateway: ${error instanceof Error ? error.message : String(error)}`,
+            };
+          }
+        },
+      });
+
+      api.registerCommand({
+        name: "mg_restart",
+        description: "Restart the MoltGuard gateway",
+        requireAuth: true,
+        handler: async () => {
+          try {
+            await gatewayManager!.restart();
+            return { text: "Gateway restarted successfully" };
+          } catch (error) {
+            return {
+              text: `Failed to restart gateway: ${error instanceof Error ? error.message : String(error)}`,
+            };
+          }
+        },
+      });
+    }
 
     log.info(
       `Initialized (block: ${config.blockOnRisk}, timeout: ${config.timeoutMs}ms)`,
