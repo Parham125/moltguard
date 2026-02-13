@@ -72,7 +72,7 @@ export const DEFAULT_CONFIG: Required<OpenClawGuardConfig> = {
   blockOnRisk: true,
   apiKey: "",
   timeoutMs: 60000,
-  dbPath: path.join(os.homedir(), ".openclaw", "openclawguard.db"),
+  logPath: path.join(os.homedir(), ".openclaw", "logs"),
   autoRegister: true,
   apiBaseUrl: DEFAULT_API_BASE_URL,
 };
@@ -87,7 +87,7 @@ export function resolveConfig(config?: Partial<OpenClawGuardConfig>): Required<O
     blockOnRisk: config?.blockOnRisk ?? DEFAULT_CONFIG.blockOnRisk,
     apiKey: config?.apiKey ?? DEFAULT_CONFIG.apiKey,
     timeoutMs: config?.timeoutMs ?? DEFAULT_CONFIG.timeoutMs,
-    dbPath: config?.dbPath ?? DEFAULT_CONFIG.dbPath,
+    logPath: config?.logPath ?? DEFAULT_CONFIG.logPath,
     autoRegister: config?.autoRegister ?? DEFAULT_CONFIG.autoRegister,
     apiBaseUrl: config?.apiBaseUrl ?? DEFAULT_CONFIG.apiBaseUrl,
   };

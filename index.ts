@@ -114,8 +114,8 @@ const openClawGuardPlugin = {
     }
 
     // Initialize analysis store
-    const dbPath = api.resolvePath(config.dbPath);
-    const store = createAnalysisStore(dbPath, log);
+    const logPath = api.resolvePath(config.logPath);
+    const store = createAnalysisStore(logPath, log);
 
     // Resolve API key (from config, credentials file, or auto-register)
     let resolvedApiKey = config.apiKey;

@@ -1,66 +1,91 @@
 /**
- * Simple SQLite store for analysis logging
- * (No patterns, no vectors - just audit logs)
+ * Simple JSONL file store for analysis logging
+ * (No dependencies - just append-only log files)
  */
 
-import Database from "better-sqlite3";
 import type { AnalysisVerdict, AnalysisLogEntry, Logger } from "../agent/types.js";
 import fs from "node:fs";
 import path from "node:path";
 
 // =============================================================================
-// Schema
+// Row Types
 // =============================================================================
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS analysis_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  timestamp TEXT DEFAULT (datetime('now')),
-  target_type TEXT NOT NULL,
-  content_length INTEGER NOT NULL,
-  chunks_analyzed INTEGER NOT NULL,
-  verdict TEXT NOT NULL,
-  duration_ms INTEGER NOT NULL,
-  blocked INTEGER NOT NULL DEFAULT 0
-);
+type AnalysisRow = {
+  id: number;
+  timestamp: string;
+  targetType: string;
+  contentLength: number;
+  chunksAnalyzed: number;
+  verdict: AnalysisVerdict;
+  durationMs: number;
+  blocked: boolean;
+};
 
-CREATE TABLE IF NOT EXISTS user_feedback (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  timestamp TEXT DEFAULT (datetime('now')),
-  analysis_id INTEGER,
-  feedback_type TEXT NOT NULL,
-  reason TEXT,
-  FOREIGN KEY (analysis_id) REFERENCES analysis_log(id)
-);
+type FeedbackRow = {
+  id: number;
+  timestamp: string;
+  analysisId: number | null;
+  feedbackType: string;
+  reason: string | null;
+};
 
-CREATE INDEX IF NOT EXISTS idx_analysis_log_timestamp ON analysis_log(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_analysis_log_blocked ON analysis_log(blocked);
-CREATE INDEX IF NOT EXISTS idx_user_feedback_analysis ON user_feedback(analysis_id);
-`;
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function readLines<T>(filePath: string): T[] {
+  if (!fs.existsSync(filePath)) return [];
+  const content = fs.readFileSync(filePath, "utf-8");
+  const results: T[] = [];
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      results.push(JSON.parse(line) as T);
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return results;
+}
+
+function getMaxId<T extends { id: number }>(rows: T[]): number {
+  let max = 0;
+  for (const row of rows) {
+    if (row.id > max) max = row.id;
+  }
+  return max;
+}
 
 // =============================================================================
 // Store Class
 // =============================================================================
 
 export class AnalysisStore {
-  private db: Database.Database;
+  private analysisFile: string;
+  private feedbackFile: string;
+  private nextAnalysisId: number;
+  private nextFeedbackId: number;
   private log: Logger;
 
-  constructor(dbPath: string, log: Logger) {
+  constructor(logPath: string, log: Logger) {
     this.log = log;
 
     // Ensure directory exists
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(logPath)) {
+      fs.mkdirSync(logPath, { recursive: true });
     }
 
-    // Initialize database
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.exec(SCHEMA_SQL);
+    this.analysisFile = path.join(logPath, "moltguard-analyses.jsonl");
+    this.feedbackFile = path.join(logPath, "moltguard-feedback.jsonl");
 
-    this.log.info(`Analysis store initialized at ${dbPath}`);
+    // Read existing data to determine next IDs
+    const analyses = readLines<AnalysisRow>(this.analysisFile);
+    const feedback = readLines<FeedbackRow>(this.feedbackFile);
+    this.nextAnalysisId = getMaxId(analyses) + 1;
+    this.nextFeedbackId = getMaxId(feedback) + 1;
+
+    this.log.info(`Analysis store initialized at ${logPath}`);
   }
 
   /**
@@ -74,49 +99,28 @@ export class AnalysisStore {
     durationMs: number;
     blocked: boolean;
   }): number {
-    const result = this.db
-      .prepare(
-        `
-        INSERT INTO analysis_log (target_type, content_length, chunks_analyzed, verdict, duration_ms, blocked)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `,
-      )
-      .run(
-        entry.targetType,
-        entry.contentLength,
-        entry.chunksAnalyzed,
-        JSON.stringify(entry.verdict),
-        entry.durationMs,
-        entry.blocked ? 1 : 0,
-      );
-
-    return result.lastInsertRowid as number;
+    const id = this.nextAnalysisId++;
+    const row: AnalysisRow = {
+      id,
+      timestamp: new Date().toISOString(),
+      targetType: entry.targetType,
+      contentLength: entry.contentLength,
+      chunksAnalyzed: entry.chunksAnalyzed,
+      verdict: entry.verdict,
+      durationMs: entry.durationMs,
+      blocked: entry.blocked,
+    };
+    fs.appendFileSync(this.analysisFile, JSON.stringify(row) + "\n", "utf-8");
+    return id;
   }
 
   /**
    * Get recent analysis logs
    */
   getRecentLogs(limit: number = 20): AnalysisLogEntry[] {
-    const rows = this.db
-      .prepare(
-        `
-        SELECT * FROM analysis_log
-        ORDER BY timestamp DESC
-        LIMIT ?
-      `,
-      )
-      .all(limit) as DbAnalysisLog[];
-
-    return rows.map((row) => ({
-      id: row.id,
-      timestamp: row.timestamp,
-      targetType: row.target_type,
-      contentLength: row.content_length,
-      chunksAnalyzed: row.chunks_analyzed,
-      verdict: JSON.parse(row.verdict) as AnalysisVerdict,
-      durationMs: row.duration_ms,
-      blocked: row.blocked === 1,
-    }));
+    const rows = readLines<AnalysisRow>(this.analysisFile);
+    rows.sort((a, b) => (b.timestamp > a.timestamp ? 1 : b.timestamp < a.timestamp ? -1 : 0));
+    return rows.slice(0, limit);
   }
 
   /**
@@ -125,17 +129,14 @@ export class AnalysisStore {
   getBlockedCount(windowHours: number = 24): number {
     const windowStart = new Date();
     windowStart.setHours(windowStart.getHours() - windowHours);
+    const cutoff = windowStart.toISOString();
 
-    const row = this.db
-      .prepare(
-        `
-        SELECT COUNT(*) as count FROM analysis_log
-        WHERE blocked = 1 AND timestamp >= ?
-      `,
-      )
-      .get(windowStart.toISOString()) as { count: number };
-
-    return row.count;
+    const rows = readLines<AnalysisRow>(this.analysisFile);
+    let count = 0;
+    for (const row of rows) {
+      if (row.blocked && row.timestamp >= cutoff) count++;
+    }
+    return count;
   }
 
   /**
@@ -147,23 +148,19 @@ export class AnalysisStore {
     blockedLast24h: number;
     avgDurationMs: number;
   } {
-    const total = this.db
-      .prepare("SELECT COUNT(*) as count FROM analysis_log")
-      .get() as { count: number };
-
-    const blocked = this.db
-      .prepare("SELECT COUNT(*) as count FROM analysis_log WHERE blocked = 1")
-      .get() as { count: number };
-
-    const avgDuration = this.db
-      .prepare("SELECT AVG(duration_ms) as avg FROM analysis_log")
-      .get() as { avg: number | null };
+    const rows = readLines<AnalysisRow>(this.analysisFile);
+    let totalBlocked = 0;
+    let totalDuration = 0;
+    for (const row of rows) {
+      if (row.blocked) totalBlocked++;
+      totalDuration += row.durationMs;
+    }
 
     return {
-      totalAnalyses: total.count,
-      totalBlocked: blocked.count,
+      totalAnalyses: rows.length,
+      totalBlocked,
       blockedLast24h: this.getBlockedCount(24),
-      avgDurationMs: Math.round(avgDuration.avg ?? 0),
+      avgDurationMs: rows.length > 0 ? Math.round(totalDuration / rows.length) : 0,
     };
   }
 
@@ -171,27 +168,10 @@ export class AnalysisStore {
    * Get recent detections (only those flagged as injection)
    */
   getRecentDetections(limit: number = 10): AnalysisLogEntry[] {
-    const rows = this.db
-      .prepare(
-        `
-        SELECT * FROM analysis_log
-        WHERE json_extract(verdict, '$.isInjection') = 1
-        ORDER BY timestamp DESC
-        LIMIT ?
-      `,
-      )
-      .all(limit) as DbAnalysisLog[];
-
-    return rows.map((row) => ({
-      id: row.id,
-      timestamp: row.timestamp,
-      targetType: row.target_type,
-      contentLength: row.content_length,
-      chunksAnalyzed: row.chunks_analyzed,
-      verdict: JSON.parse(row.verdict) as AnalysisVerdict,
-      durationMs: row.duration_ms,
-      blocked: row.blocked === 1,
-    }));
+    const rows = readLines<AnalysisRow>(this.analysisFile);
+    const detections = rows.filter((r) => r.verdict.isInjection);
+    detections.sort((a, b) => (b.timestamp > a.timestamp ? 1 : b.timestamp < a.timestamp ? -1 : 0));
+    return detections.slice(0, limit);
   }
 
   /**
@@ -202,16 +182,16 @@ export class AnalysisStore {
     feedbackType: "false_positive" | "missed_detection";
     reason?: string;
   }): number {
-    const result = this.db
-      .prepare(
-        `
-        INSERT INTO user_feedback (analysis_id, feedback_type, reason)
-        VALUES (?, ?, ?)
-      `,
-      )
-      .run(entry.analysisId ?? null, entry.feedbackType, entry.reason ?? null);
-
-    return result.lastInsertRowid as number;
+    const id = this.nextFeedbackId++;
+    const row: FeedbackRow = {
+      id,
+      timestamp: new Date().toISOString(),
+      analysisId: entry.analysisId ?? null,
+      feedbackType: entry.feedbackType,
+      reason: entry.reason ?? null,
+    };
+    fs.appendFileSync(this.feedbackFile, JSON.stringify(row) + "\n", "utf-8");
+    return id;
   }
 
   /**
@@ -221,44 +201,25 @@ export class AnalysisStore {
     falsePositives: number;
     missedDetections: number;
   } {
-    const fp = this.db
-      .prepare("SELECT COUNT(*) as count FROM user_feedback WHERE feedback_type = 'false_positive'")
-      .get() as { count: number };
-
-    const md = this.db
-      .prepare("SELECT COUNT(*) as count FROM user_feedback WHERE feedback_type = 'missed_detection'")
-      .get() as { count: number };
-
-    return {
-      falsePositives: fp.count,
-      missedDetections: md.count,
-    };
+    const rows = readLines<FeedbackRow>(this.feedbackFile);
+    let falsePositives = 0;
+    let missedDetections = 0;
+    for (const row of rows) {
+      if (row.feedbackType === "false_positive") falsePositives++;
+      if (row.feedbackType === "missed_detection") missedDetections++;
+    }
+    return { falsePositives, missedDetections };
   }
 
   close(): void {
-    this.db.close();
+    // No-op for JSONL store (no connection to close)
   }
 }
-
-// =============================================================================
-// Database Row Type
-// =============================================================================
-
-type DbAnalysisLog = {
-  id: number;
-  timestamp: string;
-  target_type: string;
-  content_length: number;
-  chunks_analyzed: number;
-  verdict: string;
-  duration_ms: number;
-  blocked: number;
-};
 
 // =============================================================================
 // Factory
 // =============================================================================
 
-export function createAnalysisStore(dbPath: string, log: Logger): AnalysisStore {
-  return new AnalysisStore(dbPath, log);
+export function createAnalysisStore(logPath: string, log: Logger): AnalysisStore {
+  return new AnalysisStore(logPath, log);
 }

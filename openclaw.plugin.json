@@ -23,9 +23,9 @@
         "type": "number",
         "description": "Timeout for analysis in milliseconds (default: 60000)"
       },
-      "dbPath": {
+      "logPath": {
         "type": "string",
-        "description": "Path to SQLite database for logging (default: ~/.openclaw/openclawguard.db)"
+        "description": "Path to directory for JSONL log files (default: ~/.openclaw/logs)"
       },
       "autoRegister": {
         "type": "boolean",
@@ -56,9 +56,9 @@
       "help": "Maximum time for analysis",
       "advanced": true
     },
-    "dbPath": {
-      "label": "Database Path",
-      "help": "Custom path for the analysis log database",
+    "logPath": {
+      "label": "Log Directory",
+      "help": "Custom path for the JSONL analysis log files",
       "advanced": true
     },
     "autoRegister": {
