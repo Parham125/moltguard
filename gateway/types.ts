@@ -19,14 +19,17 @@ export type GatewayConfig = {
     anthropic?: {
       baseUrl: string;
       apiKey: string;
+      endpointPath?: string;
     };
     openai?: {
       baseUrl: string;
       apiKey: string;
+      endpointPath?: string;
     };
     gemini?: {
       baseUrl: string;
       apiKey: string;
+      endpointPath?: string;
     };
   };
   // Optional: route specific paths to specific backends

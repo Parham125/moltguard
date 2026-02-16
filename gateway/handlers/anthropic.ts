@@ -64,7 +64,8 @@ export async function handleAnthropicRequest(
     }
 
     // 6. Forward to real Anthropic API
-    const apiUrl = `${backend.baseUrl}/v1/messages`;
+    const endpointPath = backend.endpointPath || "/v1/messages";
+    const apiUrl = `${backend.baseUrl}${endpointPath}`;
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {

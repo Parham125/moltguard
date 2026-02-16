@@ -45,7 +45,9 @@ export async function handleGeminiRequest(
     }
 
     // 5. Forward to Gemini API
-    const apiUrl = `${backend.baseUrl}/v1/models/${modelName}:generateContent`;
+    const endpointTemplate = backend.endpointPath || "/v1/models/{model}:generateContent";
+    const endpointPath = endpointTemplate.replace("{model}", modelName);
+    const apiUrl = `${backend.baseUrl}${endpointPath}`;
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {

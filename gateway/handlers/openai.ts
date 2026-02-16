@@ -58,7 +58,8 @@ export async function handleOpenAIRequest(
     }
 
     // 5. Forward to OpenAI (or compatible) API
-    const apiUrl = `${backend.baseUrl}/v1/chat/completions`;
+    const endpointPath = backend.endpointPath || "/v1/chat/completions";
+    const apiUrl = `${backend.baseUrl}${endpointPath}`;
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
