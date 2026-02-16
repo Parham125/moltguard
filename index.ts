@@ -220,12 +220,12 @@ const openClawGuardPlugin = {
       return;
     });
 
-    // Register message_received hook (for analyzing long content)
+    // Register message_received hook (for analyzing all user messages)
     api.on("message_received", (event, ctx) => {
       log.info(`message_received hook triggered, content length: ${event.content.length}`);
 
-      if (event.content.length < 1000) {
-        log.info(`Skipping analysis: content too short (${event.content.length} < 1000 chars)`);
+      if (event.content.length < 10) {
+        log.info(`Skipping analysis: content too short (${event.content.length} < 10 chars)`);
         return;
       }
 
